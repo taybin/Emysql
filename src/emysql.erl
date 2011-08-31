@@ -124,7 +124,7 @@ execute(PoolId, StmtName, Args, Timeout) when is_atom(StmtName), is_list(Args) a
 %%
 execute(PoolId, Query, Args, Timeout, nonblocking) when (is_list(Query) orelse is_binary(Query)) andalso is_list(Args) andalso is_integer(Timeout) ->
 	case emysql_conn_mgr:lock_connection(PoolId) of
-		Connection when is_record(Connection, connection) ->
+		Connection when is_record(Connection, emysql_connection) ->
 			monitor_work(Connection, Timeout, {emysql_conn, execute, [Connection, Query, Args]});
 		Other ->
 			Other
@@ -132,7 +132,7 @@ execute(PoolId, Query, Args, Timeout, nonblocking) when (is_list(Query) orelse i
 
 execute(PoolId, StmtName, Args, Timeout, nonblocking) when is_atom(StmtName), is_list(Args) andalso is_integer(Timeout) ->
 	case emysql_conn_mgr:lock_connection(PoolId) of
-		Connection when is_record(Connection, connection) ->
+		Connection when is_record(Connection, emysql_connection) ->
 			monitor_work(Connection, Timeout, {emysql_conn, execute, [Connection, StmtName, Args]});
 		Other ->
 			Other
@@ -141,7 +141,7 @@ execute(PoolId, StmtName, Args, Timeout, nonblocking) when is_atom(StmtName), is
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-monitor_work(Connection, Timeout, {M,F,A}) when is_record(Connection, connection) ->
+monitor_work(Connection, Timeout, {M,F,A}) when is_record(Connection, emysql_connection) ->
 	%% spawn a new process to do work, then monitor that process until
 	%% it either dies, returns data or times out.
 	Parent = self(),

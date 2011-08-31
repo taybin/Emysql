@@ -36,21 +36,21 @@
 set_database(_, undefined) -> ok;
 set_database(Connection, Database) ->
 	Packet = <<?COM_QUERY, "use ", (iolist_to_binary(Database))/binary>>,
-	emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0).
+	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 set_encoding(Connection, Encoding) ->
 	Packet = <<?COM_QUERY, "set names '", (erlang:atom_to_binary(Encoding, utf8))/binary, "'">>,
-	emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0).
+	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 execute(Connection, Query, []) when is_list(Query); is_binary(Query) ->
 	Packet = <<?COM_QUERY, (iolist_to_binary(Query))/binary>>,
-	emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0);
+	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0);
 
 execute(Connection, StmtName, []) when is_atom(StmtName) ->
 	prepare_statement(Connection, StmtName),
 	StmtNameBin = atom_to_binary(StmtName, utf8),
 	Packet = <<?COM_QUERY, "EXECUTE ", StmtNameBin/binary>>,
-	emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0);
+	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0);
 
 execute(Connection, Query, Args) when (is_list(Query) orelse is_binary(Query)) andalso is_list(Args) ->
 	StmtName = "stmt_"++integer_to_list(erlang:phash2(Query)),
@@ -60,7 +60,7 @@ execute(Connection, Query, Args) when (is_list(Query) orelse is_binary(Query)) a
 		OK when is_record(OK, ok_packet) ->
 			ParamNamesBin = list_to_binary(string:join([[$@ | integer_to_list(I)] || I <- lists:seq(1, length(Args))], ", ")),
 			Packet = <<?COM_QUERY, "EXECUTE ", (list_to_binary(StmtName))/binary, " USING ", ParamNamesBin/binary>>,
-			emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0);
+			emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0);
 		Error ->
 			Error
 	end,
@@ -74,7 +74,7 @@ execute(Connection, StmtName, Args) when is_atom(StmtName), is_list(Args) ->
 			ParamNamesBin = list_to_binary(string:join([[$@ | integer_to_list(I)] || I <- lists:seq(1, length(Args))], ", ")),
 			StmtNameBin = atom_to_binary(StmtName, utf8),
 			Packet = <<?COM_QUERY, "EXECUTE ", StmtNameBin/binary, " USING ", ParamNamesBin/binary>>,
-			emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0);
+			emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0);
 		Error ->
 			Error
 	end.
@@ -83,13 +83,13 @@ prepare(Connection, Name, Statement) when is_atom(Name) ->
 	prepare(Connection, atom_to_list(Name), Statement);
 prepare(Connection, Name, Statement) ->
 	Packet = <<?COM_QUERY, "PREPARE ", (list_to_binary(Name))/binary, " FROM '", (iolist_to_binary(Statement))/binary, "'">>,
-	emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0).
+	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 unprepare(Connection, Name) when is_atom(Name)->
 	unprepare(Connection, atom_to_list(Name));
 unprepare(Connection, Name) ->
 	Packet = <<?COM_QUERY, "DEALLOCATE PREPARE ", (list_to_binary(Name))/binary>>,
-	emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0).
+	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 open_n_connections(PoolId, N) ->
 	case emysql_conn_mgr:find_pool(PoolId, emysql_conn_mgr:pools(), []) of
@@ -97,7 +97,7 @@ open_n_connections(PoolId, N) ->
 			lists:foldl(fun(_ ,Connections) ->
 				%% Catch {'EXIT',_} errors so newly opened connections are not orphaned.
 				case catch open_connection(Pool) of
-					#connection{} = Connection ->
+					#emysql_connection{} = Connection ->
 						[Connection | Connections];
 					_ ->
 						Connections
@@ -125,7 +125,7 @@ open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=
 					"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."}),
 			gen_tcp:controlling_process(Sock, Mgr),
 			Greeting = emysql_auth:do_handshake(Sock, User, Password),
-			Connection = #connection{
+			Connection = #emysql_connection{
 				id = erlang:port_to_list(Sock),
 				pool_id = PoolId,
 				socket = Sock,
@@ -158,7 +158,7 @@ reset_connection(Pools, Conn) ->
 	%% to be opened to replace the old one.
 	spawn(fun() -> close_connection(Conn) end),
 	%% OPEN NEW SOCKET
-	case emysql_conn_mgr:find_pool(Conn#connection.pool_id, Pools, []) of
+	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools, []) of
 		{Pool, _} ->
 			NewConn = open_connection(Pool),
 			emysql_conn_mgr:replace_connection(Conn, NewConn);
@@ -169,7 +169,7 @@ reset_connection(Pools, Conn) ->
 renew_connection(Pools, Conn) ->
 	spawn(fun() -> close_connection(Conn) end),
 	%% OPEN NEW SOCKET
-	case emysql_conn_mgr:find_pool(Conn#connection.pool_id, Pools, []) of
+	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools, []) of
 		{Pool, _} ->
 			NewConn = open_connection(Pool),
 			emysql_conn_mgr:replace_connection_locked(Conn, NewConn),
@@ -180,9 +180,9 @@ renew_connection(Pools, Conn) ->
 
 close_connection(Conn) ->
 	%% DEALLOCATE PREPARED STATEMENTS
-	[(catch unprepare(Conn, Name)) || Name <- emysql_statements:remove(Conn#connection.id)],
+	[(catch unprepare(Conn, Name)) || Name <- emysql_statements:remove(Conn#emysql_connection.id)],
 	%% CLOSE SOCKET
-	gen_tcp:close(Conn#connection.socket),
+	gen_tcp:close(Conn#emysql_connection.socket),
 	ok.
 
 %%--------------------------------------------------------------------
@@ -194,7 +194,7 @@ set_params(Connection, Num, [Val|Tail], _) ->
 	NumBin = emysql_util:encode(Num, true),
 	ValBin = emysql_util:encode(Val, true),
 	Packet = <<?COM_QUERY, "SET @", NumBin/binary, "=", ValBin/binary>>,
-	Result = emysql_tcp:send_and_recv_packet(Connection#connection.socket, Packet, 0),
+	Result = emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0),
 	set_params(Connection, Num+1, Tail, Result).
 
 prepare_statement(Connection, StmtName) ->
@@ -202,13 +202,13 @@ prepare_statement(Connection, StmtName) ->
 		undefined ->
 			exit(statement_has_not_been_prepared);
 		{Version, Statement} ->
-			case emysql_statements:version(Connection#connection.id, StmtName) of
+			case emysql_statements:version(Connection#emysql_connection.id, StmtName) of
 				Version ->
 					ok;
 				_ ->
 					case prepare(Connection, StmtName, Statement) of
 						OK when is_record(OK, ok_packet) ->
-							emysql_statements:prepare(Connection#connection.id, StmtName, Version);
+							emysql_statements:prepare(Connection#emysql_connection.id, StmtName, Version);
 						Err when is_record(Err, error_packet) ->
 							exit({failed_to_prepare_statement, Err#error_packet.msg})
 					end
