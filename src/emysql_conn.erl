@@ -94,7 +94,15 @@ unprepare(Connection, Name) ->
 open_n_connections(PoolId, N) ->
 	case emysql_conn_mgr:find_pool(PoolId, emysql_conn_mgr:pools(), []) of
 		{Pool, _} ->
-			[open_connection(Pool) || _ <- lists:seq(1, N)];
+			lists:foldl(fun(_ ,Connections) ->
+				%% Catch {'EXIT',_} errors so newly opened connections are not orphaned.
+				case catch open_connection(Pool) of
+					#connection{} = Connection ->
+						[Connection | Connections];
+					_ ->
+						Connections
+				end
+			end, [], lists:seq(1, N));
 		_ ->
 			exit(pool_not_found)
 	end.
