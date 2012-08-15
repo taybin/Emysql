@@ -218,11 +218,9 @@ handle_call({end_wait, PoolId}, {From, _Mref}, State) ->
 			%% See if the length changed to know if From was removed.
 			OldLen = queue:len(Pool#pool.waiting),
 			NewLen = queue:len(QueueNow),
-			if
-				OldLen =:= NewLen ->
-					Reply = not_waiting;
-				true ->
-					Reply = ok
+			Reply = if
+				OldLen =:= NewLen -> not_waiting;
+				true -> ok
 			end,
 			{reply, Reply, State#state{pools=[PoolNow|OtherPools]}};
 		undefined ->
