@@ -181,12 +181,18 @@ encode(undefined, binary, _)  ->
 encode(Val, list, latin1) when is_binary(Val) ->
 	quote(binary_to_list(Val));
 
+encode(Val, list, utf8mb4) when is_binary(Val) ->
+    encode(Val, list, utf8);
+
 encode(Val, list, Encoding) when is_binary(Val) ->
 	quote(unicode:characters_to_list(Val, Encoding));
 
 
 encode(Val, binary, latin1) when is_list(Val) -> 
 	list_to_binary(quote(Val));
+
+encode(Val, binary, utf8mb4) when is_list(Val) ->
+    encode(Val, binary, utf8);
 
 encode(Val, binary, Encoding) when is_list(Val) ->
 	unicode:characters_to_binary(quote(Val), Encoding, Encoding);
@@ -198,6 +204,9 @@ encode(Val, binary, latin1) when is_binary(Val) ->
 	%-% io:format("encode latin-1 out: ~s = ~w ~n", [X, X]),
 	X;
 	
+encode(Val, binary, utf8mb4) when is_binary(Val) ->
+    encode(Val, binary, utf8);
+
 encode(Val, binary, Encoding) when is_binary(Val) ->
 	case unicode:characters_to_list(Val,Encoding) of
 		{error,E1,E2} -> exit({invalid_utf8_binary, E1, E2});
@@ -353,6 +362,9 @@ to_binary(L,_) when is_binary(L) ->
 	
 to_binary(L,latin1) when is_list(L) ->
 	list_to_binary(L);
+
+to_binary(L,utf8mb4) when is_list(L) ->
+    to_binary(L,utf8);
 
 to_binary(L,Encoding) when is_list(L) ->
 	unicode:characters_to_binary(L,Encoding,Encoding).
