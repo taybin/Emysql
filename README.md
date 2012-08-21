@@ -341,7 +341,12 @@ For the encoding tests, please create these databases:
 	  use hello_utf8_database;
 	  create table hello_table (hello_text char(20));
 	  grant all privileges on hello_utf8_database.* to hello_username@localhost identified by 'hello_password';
-	  
+
+	  create database hello_utf8mb4_database character set utf8mb4;
+	  use hello_utf8mb4_database;
+	  create table hello_table (hello_text char(20));
+	  grant all privileges on hello_utf8mb4_database.* to hello_username@localhost identified by 'hello_password';
+
 	  create database hello_latin1_database character set latin1;
 	  use hello_latin1_database;
 	  create table hello_table (hello_text char(20));
