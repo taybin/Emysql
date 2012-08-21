@@ -190,6 +190,46 @@ encode({Time1, Time2, Time3}, false) ->
 encode(Val, _AsBinary) ->
 	{error, {unrecognized_value, Val}}.
 
+encode(Val, list, latin1) when is_binary(Val) ->
+	quote(binary_to_list(Val));
+
+encode(Val, list, utf8mb4) when is_binary(Val) ->
+    encode(Val, list, utf8);
+
+encode(Val, list, Encoding) when is_binary(Val) ->
+	quote(unicode:characters_to_list(Val, Encoding));
+
+encode(Val, binary, latin1) when is_list(Val) -> 
+	list_to_binary(quote(Val));
+
+encode(Val, binary, utf8mb4) when is_list(Val) ->
+    encode(Val, binary, utf8);
+
+encode(Val, binary, Encoding) when is_list(Val) ->
+	unicode:characters_to_binary(quote(Val), Encoding, Encoding);
+
+encode(Val, binary, latin1) when is_binary(Val) ->
+	%-% io:format("encode latin-1 in : ~s = ~w ~n", [Val, Val]),
+	X = list_to_binary(quote(binary_to_list(Val))),
+	%-% io:format("encode latin-1 out: ~s = ~w ~n", [X, X]),
+	X;
+	
+encode(Val, binary, utf8mb4) when is_binary(Val) ->
+    encode(Val, binary, utf8);
+
+encode(Val, binary, Encoding) when is_binary(Val) ->
+	case unicode:characters_to_list(Val,Encoding) of
+		{error,E1,E2} -> exit({invalid_utf8_binary, E1, E2});
+		{incomplete,E1,E2} -> exit({invalid_utf8_binary, E1, E2});
+	    List ->
+			unicode:characters_to_binary(quote(List),Encoding,Encoding)    	
+    end;
+
+encode(Val, list, _) when is_list(Val) ->
+	%-% io:format("encode list in : ~s = ~w ~n", [Val, Val]),
+	%-% io:format("encode list out: ~s = ~w ~n", [quote(Val), quote(Val)]),
+	quote(Val).
+
 %% @private
 two_digits(Nums) when is_list(Nums) ->
 	[two_digits(Num) || Num <- Nums];
@@ -226,3 +266,64 @@ quote([26 | Rest], Acc) ->
 	quote(Rest, [$Z, $\\ | Acc]);
 quote([C | Rest], Acc) ->
 	quote(Rest, [C | Acc]).
+
+quote_loop([0 | Rest], Acc) ->
+	quote_loop(Rest, [$0, $\\ | Acc]);
+
+quote_loop([10 | Rest], Acc) ->
+	quote_loop(Rest, [$n, $\\ | Acc]);
+
+quote_loop([13 | Rest], Acc) ->
+	quote_loop(Rest, [$r, $\\ | Acc]);
+
+quote_loop([$\\ | Rest], Acc) ->
+	quote_loop(Rest, [$\\ , $\\ | Acc]);
+
+quote_loop([39 | Rest], Acc) -> %% 39 is $'
+	quote_loop(Rest, [39, $\\ | Acc]); %% 39 is $'
+
+quote_loop([34 | Rest], Acc) -> %% 34 is $"
+	quote_loop(Rest, [34, $\\ | Acc]); %% 34 is $"
+
+quote_loop([26 | Rest], Acc) ->
+	quote_loop(Rest, [$Z, $\\ | Acc]);
+
+quote_loop([C | Rest], Acc) ->
+	quote_loop(Rest, [C | Acc]).
+
+%% UTF-8 is designed in such a way that ISO-latin-1 characters with 
+%% numbers beyond the 7-bit ASCII range are seldom considered valid
+%% when decoded as UTF-8. Therefore one can usually use heuristics 
+%% to determine if a file is in UTF-8 or if it is encoded in 
+%% ISO-latin-1 (one byte per character) encoding. The unicode module
+%% can be used to determine if data can be interpreted as UTF-8.
+%% Source: http://www.erlang.org/doc/apps/stdlib/unicode_usage.html
+
+anybin_to_list(Bin) when is_binary(Bin) ->
+    case unicode:characters_to_binary(Bin,utf8,utf8) of
+		Bin -> unicode:characters_to_list(Bin);
+		_ -> binary_to_list(Bin)
+    end.
+
+any_to_binary(L) when is_binary(L) ->
+	L;
+any_to_binary(L) when is_list(L) ->
+	case unicode:characters_to_binary(L) of
+		{error,_,_} -> list_to_binary(L);
+	    B -> case unicode:characters_to_list(B,utf8) of
+			L -> B;
+			_ -> list_to_binary(L)
+	    end
+    end.
+
+to_binary(L,_) when is_binary(L) ->
+	L;
+	
+to_binary(L,latin1) when is_list(L) ->
+	list_to_binary(L);
+
+to_binary(L,utf8mb4) when is_list(L) ->
+    to_binary(L,utf8);
+
+to_binary(L,Encoding) when is_list(L) ->
+	unicode:characters_to_binary(L,Encoding,Encoding).
