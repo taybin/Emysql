@@ -351,8 +351,8 @@ find_pool(PoolId, [Pool|Tail], OtherPools) ->
 
 lock_next_connection(State, Pool, OtherPools) ->
 	% check no of connection in Pool
-	%-% error_logger:info_msg("~p Pool ~p Connections available: ~p~n", [self(), PoolId, queue:len(Pool#pool.available)]),
-	%-% error_logger:info_msg("~p Pool ~p Connections locked: ~p~n", [self(), PoolId, gb_trees:size(Pool#pool.locked)]),
+	%-% error_logger:info_msg("~p Pool ~p Connections available: ~p~n", [self(), Pool#pool.pool_id, queue:len(Pool#pool.available)]),
+	%-% error_logger:info_msg("~p Pool ~p Connections locked: ~p~n", [self(), Pool#pool.pool_id, gb_trees:size(Pool#pool.locked)]),
 	case queue:out(Pool#pool.available) of
 		{{value, Conn}, OtherConns} ->
 			%-% error_logger:info_msg("gen srv: lock connection ... found a good next connection~n", []),
