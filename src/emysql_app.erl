@@ -33,7 +33,7 @@ start(_Type, _StartArgs) ->
 
 	% case StartArgs of
 	%	"%MAKETIME%" -> ok; % happens with rebar build
-	%	_ -> io:format("Build time: ~p~n", StartArgs)
+	%	_ -> error_logger:info_msg("Build time: ~p~n", StartArgs)
 	% end,
 	
 	emysql_sup:start_link().

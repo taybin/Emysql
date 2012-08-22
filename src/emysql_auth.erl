@@ -30,58 +30,58 @@
 -include("emysql.hrl").
 
 do_handshake(Sock, User, Password) ->
-	%-% io:format("~p handshake: recv_greeting~n", [self()]),
+	%-% error_logger:info_msg("~p handshake: recv_greeting~n", [self()]),
 	Greeting = recv_greeting(Sock),
-	%-% io:format("~p handshake: auth~n", [self()]),
+	%-% error_logger:info_msg("~p handshake: auth~n", [self()]),
 	case auth(Sock, Greeting#greeting.seq_num+1, User, Password,
 		Greeting#greeting.salt1, Greeting#greeting.salt2, Greeting#greeting.plugin) of
 		OK when is_record(OK, ok_packet) ->
-			%-% io:format("~p handshake: ok~n", [self()]),
+			%-% error_logger:info_msg("~p handshake: ok~n", [self()]),
 			ok;
 		Err when is_record(Err, error_packet) ->
-			%-% io:format("~p handshake: FAIL ~p -> EXIT ~n~n", [self(), Err]),
+			%-% error_logger:info_msg("~p handshake: FAIL ~p -> EXIT ~n~n", [self(), Err]),
 			exit({failed_to_authenticate, Err});
 		Other ->
-			%-% io:format("~p handshake: UNEXPECTED ~p -> EXIT ~n~n", [self(), Other]),
+			%-% error_logger:info_msg("~p handshake: UNEXPECTED ~p -> EXIT ~n~n", [self(), Other]),
 			exit({unexpected_packet, Other})
 	end,
 	Greeting.
 
 recv_greeting(Sock) ->
-	%-% io:format("~p recv_greeting~n", [self()]),
+	%-% error_logger:info_msg("~p recv_greeting~n", [self()]),
 	GreetingPacket = emysql_tcp:recv_packet(Sock),
-	%-% io:format("~p recv_greeting ... received ...~n", [self()]),
+	%-% error_logger:info_msg("~p recv_greeting ... received ...~n", [self()]),
 	case GreetingPacket#packet.data of
 		<<255, _/binary>> ->
-			% io:format("error: ", []), 
+			% error_logger:info_msg("error: ", []), 
 			{#error_packet{
 				code = Code,
 				msg = Msg
 			},_} = emysql_tcp:response(Sock, GreetingPacket),
-			% io:format("exit: ~p~n-------------~p~n", [Code, Msg]), 
+			% error_logger:info_msg("exit: ~p~n-------------~p~n", [Code, Msg]), 
 			exit({Code, Msg});
 		<<ProtocolVersion:8/integer, Rest1/binary>> ->
-			% io:format("prl v: ~p~n-------------~p~n", [ProtocolVersion, Rest1]), 
+			% error_logger:info_msg("prl v: ~p~n-------------~p~n", [ProtocolVersion, Rest1]), 
 			{ServerVersion, Rest2} = emysql_util:asciz(Rest1),
-			% io:format("srv v: ~p~n-------------~p~n", [ServerVersion, Rest2]),
+			% error_logger:info_msg("srv v: ~p~n-------------~p~n", [ServerVersion, Rest2]),
 			<<ThreadID:32/little, Rest3/binary>> = Rest2,
-			% io:format("tread id: ~p~n-------------~p~n", [ThreadID, Rest3]),
+			% error_logger:info_msg("tread id: ~p~n-------------~p~n", [ThreadID, Rest3]),
 			{Salt, Rest4} = emysql_util:asciz(Rest3),
-			% io:format("salt: ~p~n-------------~p~n", [Salt, Rest4]), 
+			% error_logger:info_msg("salt: ~p~n-------------~p~n", [Salt, Rest4]), 
 			<<ServerCaps:16/little, Rest5/binary>> = Rest4,
-			% io:format("caps: ~p~n-------------~p~n", [ServerCaps, Rest5]),
+			% error_logger:info_msg("caps: ~p~n-------------~p~n", [ServerCaps, Rest5]),
 			<<ServerLanguage:8/little,
 				ServerStatus:16/little,
 				ServerCapsHigh:16/little,
 				ScrambleLength:8/little,
 				_:10/binary-unit:8,
 				Rest6/binary>> = Rest5,
-			% io:format("lang: ~p, status: ~p, caps hi: ~p, salt len: ~p~n-------------~p ~n", [ServerLanguage, ServerStatus, ServerCapsHigh, ScrambleLength, Rest6]),
+			% error_logger:info_msg("lang: ~p, status: ~p, caps hi: ~p, salt len: ~p~n-------------~p ~n", [ServerLanguage, ServerStatus, ServerCapsHigh, ScrambleLength, Rest6]),
 			Salt2Length = case ScrambleLength of 0 -> 13; _-> ScrambleLength - 8 end,
 			<<Salt2Bin:Salt2Length/binary-unit:8, Plugin/binary>> = Rest6,
 			{Salt2, <<>>} = emysql_util:asciz(Salt2Bin),
-			% io:format("salt 2: ~p~n", [Salt2]),
-			% io:format("plugin: ~p~n", [Plugin]),
+			% error_logger:info_msg("salt 2: ~p~n", [Salt2]),
+			% error_logger:info_msg("plugin: ~p~n", [Plugin]),
 			#greeting{
 				protocol_version = ProtocolVersion,
 				server_version = ServerVersion,
@@ -96,7 +96,7 @@ recv_greeting(Sock) ->
 				plugin = Plugin
 			};
 		What ->
-			%-% io:format("~p recv_greeting FAILED: ~p~n", [self(), What]),
+			%-% error_logger:info_msg("~p recv_greeting FAILED: ~p~n", [self(), What]),
 			exit({greeting_failed, What})
 	end.
 
