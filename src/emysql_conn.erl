@@ -1,4 +1,4 @@
-%% Copyright (c) 2009-2011
+%% Copyright (c) 2009-2012
 %% Bill Warnecke <bill@rupture.com>
 %% Jacob Vorreuter <jacob.vorreuter@gmail.com>
 %% Henning Diedrich <hd2010@eonblast.com>
@@ -92,7 +92,7 @@ unprepare(Connection, Name) ->
 	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 open_n_connections(PoolId, N) ->
-	case emysql_conn_mgr:find_pool(PoolId, emysql_conn_mgr:pools(), []) of
+	case emysql_conn_mgr:find_pool(PoolId, emysql_conn_mgr:pools()) of
 		{Pool, _} ->
 			lists:foldl(fun(_ ,Connections) ->
 				%% Catch {'EXIT',_} errors so newly opened connections are not orphaned.
@@ -158,7 +158,7 @@ reset_connection(Pools, Conn) ->
 	%% to be opened to replace the old one.
 	spawn(fun() -> close_connection(Conn) end),
 	%% OPEN NEW SOCKET
-	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools, []) of
+	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools) of
 		{Pool, _} ->
 			NewConn = open_connection(Pool),
 			emysql_conn_mgr:replace_connection(Conn, NewConn);
