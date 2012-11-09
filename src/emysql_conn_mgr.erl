@@ -348,10 +348,10 @@ pass_connection_to_waiting_pid(State, Connection) ->
 					%% if no processes are waiting then unlock the connection
 					%% find connection in locked tree
 					case gb_trees:lookup(Connection#emysql_connection.id, Pool#pool.locked) of
-						{value, Conn} ->
+						{value, _Connection} ->
 							%% add it to the available queue and remove from locked tree
 							Pool1 = Pool#pool{
-								available = queue:in(Conn#emysql_connection{locked_at=undefined}, Pool#pool.available),
+								available = queue:in(Connection#emysql_connection{locked_at=undefined}, Pool#pool.available),
 								locked = gb_trees:delete_any(Connection#emysql_connection.id, Pool#pool.locked)
 							},
 							{ok, State#state{pools = [Pool1|OtherPools]}};
