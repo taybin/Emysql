@@ -110,11 +110,11 @@ execute(PoolId, StmtName, Timeout) when is_atom(StmtName), is_integer(Timeout) -
 %%
 execute(PoolId, Query, Args, Timeout) when (is_list(Query) orelse is_binary(Query)) andalso is_list(Args) andalso is_integer(Timeout) ->
 	Connection = emysql_conn_mgr:wait_for_connection(PoolId),
-	monitor_work(Connection, Timeout, {emysql_conn, execute, [Connection, Query, Args]});
+	monitor_work(Connection, Timeout, [Connection, Query, Args]);
 
 execute(PoolId, StmtName, Args, Timeout) when is_atom(StmtName), is_list(Args) andalso is_integer(Timeout) ->
 	Connection = emysql_conn_mgr:wait_for_connection(PoolId),
-	monitor_work(Connection, Timeout, {emysql_conn, execute, [Connection, StmtName, Args]}).
+	monitor_work(Connection, Timeout, [Connection, StmtName, Args]).
 
 %%
 %% NON-BLOCKING CONNECTION LOCKING
@@ -125,7 +125,7 @@ execute(PoolId, StmtName, Args, Timeout) when is_atom(StmtName), is_list(Args) a
 execute(PoolId, Query, Args, Timeout, nonblocking) when (is_list(Query) orelse is_binary(Query)) andalso is_list(Args) andalso is_integer(Timeout) ->
 	case emysql_conn_mgr:lock_connection(PoolId) of
 		Connection when is_record(Connection, emysql_connection) ->
-			monitor_work(Connection, Timeout, {emysql_conn, execute, [Connection, Query, Args]});
+			monitor_work(Connection, Timeout, [Connection, Query, Args]);
 		Other ->
 			Other
 	end;
@@ -133,7 +133,7 @@ execute(PoolId, Query, Args, Timeout, nonblocking) when (is_list(Query) orelse i
 execute(PoolId, StmtName, Args, Timeout, nonblocking) when is_atom(StmtName), is_list(Args) andalso is_integer(Timeout) ->
 	case emysql_conn_mgr:lock_connection(PoolId) of
 		Connection when is_record(Connection, emysql_connection) ->
-			monitor_work(Connection, Timeout, {emysql_conn, execute, [Connection, StmtName, Args]});
+			monitor_work(Connection, Timeout, [Connection, StmtName, Args]);
 		Other ->
 			Other
 	end.
@@ -141,14 +141,14 @@ execute(PoolId, StmtName, Args, Timeout, nonblocking) when is_atom(StmtName), is
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-monitor_work(Connection, Timeout, {M,F,A}) when is_record(Connection, emysql_connection) ->
+monitor_work(Connection, Timeout, Args) when is_record(Connection, emysql_connection) ->
 	%% spawn a new process to do work, then monitor that process until
 	%% it either dies, returns data or times out.
 	Parent = self(),
 	Pid = spawn(
 		fun() ->
 			receive start ->
-				Parent ! {self(), apply(M, F, A)}
+				Parent ! {self(), apply(fun emysql_conn:execute/3, Args)}
 			end
 		end),
 	Mref = erlang:monitor(process, Pid),
@@ -156,8 +156,8 @@ monitor_work(Connection, Timeout, {M,F,A}) when is_record(Connection, emysql_con
 	receive
 		{'DOWN', Mref, process, Pid, {_, closed}} ->
 			NewConnection = emysql_conn:renew_connection(emysql_conn_mgr:pools(), Connection),
-			[_ | Args] = A,
-			monitor_work(NewConnection, Timeout ,{M, F, [NewConnection | Args]});
+			[_ | OtherArgs] = Args,
+			monitor_work(NewConnection, Timeout ,[NewConnection | OtherArgs]);
 		{'DOWN', Mref, process, Pid, Reason} ->
 			%% if the process dies, reset the connection
 			%% and re-throw the error on the current pid
