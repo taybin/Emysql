@@ -110,7 +110,7 @@ open_n_connections(PoolId, N) ->
 open_connections(Pool) ->
 	case (queue:len(Pool#pool.available) + gb_trees:size(Pool#pool.locked)) < Pool#pool.size of
 		true ->
-			Conn = emysql_conn:open_connection(Pool),
+			Conn = open_connection(Pool),
 			open_connections(Pool#pool{available = queue:in(Conn, Pool#pool.available)});
 		false ->
 			Pool
@@ -137,14 +137,14 @@ open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=
 				caps = Greeting#greeting.caps,
 				language = Greeting#greeting.language
 			},
-			case emysql_conn:set_database(Connection, Database) of
+			case set_database(Connection, Database) of
 				OK1 when is_record(OK1, ok_packet) ->
 					ok;
 				Err1 when is_record(Err1, error_packet) ->
 					gen_tcp:close(Sock),
 					exit({failed_to_set_database, Err1#error_packet.msg})
 			end,
-			case emysql_conn:set_encoding(Connection, Encoding) of
+			case set_encoding(Connection, Encoding) of
 				OK2 when is_record(OK2, ok_packet) ->
 					ok;
 				Err2 when is_record(Err2, error_packet) ->
