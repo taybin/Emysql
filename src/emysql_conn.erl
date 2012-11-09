@@ -156,8 +156,7 @@ reset_connection(Pools, Conn) ->
 	%% the socket must be closed and the connection reset
 	%% in the conn_mgr state. Also a new connection needs
 	%% to be opened to replace the old one.
-	spawn(fun() -> close_connection(Conn) end),
-	%% OPEN NEW SOCKET
+	close_connection(Conn),
 	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools) of
 		{Pool, _} ->
 			NewConn = open_connection(Pool),
@@ -167,8 +166,7 @@ reset_connection(Pools, Conn) ->
 	end.
 
 renew_connection(Pools, Conn) ->
-	spawn(fun() -> close_connection(Conn) end),
-	%% OPEN NEW SOCKET
+	close_connection(Conn),
 	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools, []) of
 		{Pool, _} ->
 			NewConn = open_connection(Pool),
