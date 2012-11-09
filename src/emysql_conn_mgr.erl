@@ -86,7 +86,8 @@ wait_for_connection(PoolId)->
 	end.
 
 unlock_connection(Connection) ->
-	do_gen_call({unlock_connection, Connection}).
+	%% unlocking a connection is the same thing as replacing it with itself
+	do_gen_call({replace_connection, Connection, Connection}).
 
 replace_connection(OldConn, NewConn) ->
 	do_gen_call({replace_connection, OldConn, NewConn}).
@@ -200,18 +201,6 @@ handle_call({abort_wait, PoolId}, {From, _Mref}, State) ->
 			QueueNow = queue:filter(fun(Pid) -> Pid =/= From end, Pool#pool.waiting),
 			PoolNow = Pool#pool{waiting = QueueNow},
 			{reply, ok, State#state{pools=[PoolNow|OtherPools]}};
-		undefined ->
-			{reply, {error, pool_not_found}, State}
-	end;
-
-handle_call({unlock_connection, Connection}, _From, State) ->
-	case find_pool(Connection#emysql_connection.pool_id, State#state.pools) of
-		{Pool, OtherPools} ->
-			Pool1 = Pool#pool{
-				available = queue:in(Connection#emysql_connection{locked_at=undefined}, Pool#pool.available),
-				locked = gb_trees:delete_any(Connection#emysql_connection.id, Pool#pool.locked)
-			},
-			{reply, ok, State#state{pools=[serve_waiting_pids(Pool1)|OtherPools]}};
 		undefined ->
 			{reply, {error, pool_not_found}, State}
 	end;
