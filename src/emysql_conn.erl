@@ -110,8 +110,12 @@ open_n_connections(PoolId, N) ->
 open_connections(Pool) ->
 	case (queue:len(Pool#pool.available) + gb_trees:size(Pool#pool.locked)) < Pool#pool.size of
 		true ->
-			Conn = open_connection(Pool),
-			open_connections(Pool#pool{available = queue:in(Conn, Pool#pool.available)});
+			case catch open_connection(Pool) of
+				#emysql_connection{} = Conn ->
+					open_connections(Pool#pool{available = queue:in(Conn, Pool#pool.available)});
+				_ ->
+					Pool
+			end;
 		false ->
 			Pool
 	end.
