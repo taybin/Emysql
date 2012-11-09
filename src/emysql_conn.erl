@@ -119,10 +119,13 @@ open_connections(Pool) ->
 open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=Password, database=Database, encoding=Encoding}) ->
 	case gen_tcp:connect(Host, Port, [binary, {packet, raw}, {active, false}]) of
 		{ok, Sock} ->
-			Mgr = whereis(emysql_conn_mgr),
-			Mgr /= undefined orelse
-				exit({failed_to_find_conn_mgr,
-					"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."}),
+			Mgr = case whereis(emysql_conn_mgr) of
+				undefined ->
+					gen_tcp:close(Sock),
+					exit({failed_to_find_conn_mgr,
+						"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."});
+					Mgr0 -> Mgr0
+			end,
 			gen_tcp:controlling_process(Sock, Mgr),
 			Greeting = emysql_auth:do_handshake(Sock, User, Password),
 			Connection = #emysql_connection{
@@ -138,12 +141,14 @@ open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=
 				OK1 when is_record(OK1, ok_packet) ->
 					ok;
 				Err1 when is_record(Err1, error_packet) ->
+					gen_tcp:close(Sock),
 					exit({failed_to_set_database, Err1#error_packet.msg})
 			end,
 			case emysql_conn:set_encoding(Connection, Encoding) of
 				OK2 when is_record(OK2, ok_packet) ->
 					ok;
 				Err2 when is_record(Err2, error_packet) ->
+					gen_tcp:close(Sock),
 					exit({failed_to_set_encoding, Err2#error_packet.msg})
 			end,
 			Connection;
