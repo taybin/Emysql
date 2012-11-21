@@ -168,8 +168,13 @@ reset_connection(Pools, Conn) ->
 	close_connection(Conn),
 	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools) of
 		{Pool, _} ->
-			NewConn = open_connection(Pool),
-			emysql_conn_mgr:replace_connection(Conn, NewConn);
+			case catch open_connection(Pool) of
+				#emysql_connection{} = NewConn ->
+					emysql_conn_mgr:replace_connection(Conn, NewConn);
+				{'EXIT' ,Reason} ->
+					emysql_conn_mgr:unlock_connection(Conn),
+					exit(Reason)
+			end;
 		undefined ->
 			exit(pool_not_found)
 	end.
@@ -178,9 +183,14 @@ renew_connection(Pools, Conn) ->
 	close_connection(Conn),
 	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools, []) of
 		{Pool, _} ->
-			NewConn = open_connection(Pool),
-			emysql_conn_mgr:replace_connection_locked(Conn, NewConn),
-			NewConn;
+			case catch open_connection(Pool) of
+				#emysql_connection{} = NewConn ->
+					emysql_conn_mgr:replace_connection_locked(Conn, NewConn),
+					NewConn;
+				{'EXIT' ,Reason} ->
+					emysql_conn_mgr:unlock_connection(Conn),
+					exit(Reason)
+			end;
 		undefined ->
 			exit(pool_not_found)
 	end.
