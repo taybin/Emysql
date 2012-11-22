@@ -174,7 +174,7 @@ monitor_work(Connection, Timeout, Args) when is_record(Connection, emysql_connec
 		%% if we timeout waiting for the process to return,
 		%% then reset the connection and throw a timeout error
 		erlang:demonitor(Mref),
-		exit(Pid, normal),
+		exit(Pid, kill),
 		emysql_conn:reset_connection(emysql_conn_mgr:pools(), Connection),
 		exit(mysql_timeout)
 	end.
