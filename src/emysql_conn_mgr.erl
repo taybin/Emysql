@@ -30,7 +30,7 @@
 
 -export([pools/0, add_pool/1, remove_pool/1,
 		add_connections/2, remove_connections/2,
-		lock_connection/1, wait_for_connection/1,
+		lock_connection/1, wait_for_connection/1, wait_for_connection/2,
 		unlock_connection/1, replace_connection/2, replace_connection_locked/2,
 		find_pool/2]).
 
@@ -67,13 +67,15 @@ lock_connection(PoolId)->
 	do_gen_call({lock_connection, PoolId, false}).
 
 wait_for_connection(PoolId)->
+	wait_for_connection(PoolId, lock_timeout()).
+wait_for_connection(PoolId ,Timeout)->
 	%% try to lock a connection. if no connections are available then
 	%% wait to be notified of the next available connection
 	case do_gen_call({lock_connection, PoolId, true}) of
 		unavailable ->
 			receive
 				{connection, Connection} -> Connection
-			after lock_timeout() ->
+			after Timeout ->
 				do_gen_call({abort_wait, PoolId}),
 				receive
 					{connection, Connection} -> Connection
