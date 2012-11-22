@@ -123,14 +123,12 @@ open_connections(Pool) ->
 open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=Password, database=Database, encoding=Encoding}) ->
 	case gen_tcp:connect(Host, Port, [binary, {packet, raw}, {active, false}]) of
 		{ok, Sock} ->
-			case emysql_conn_mgr:give_manager_control(Sock) of
-				{error ,Reason} ->
+			Greeting = case catch emysql_auth:do_handshake(Sock, User, Password) of
+				{'EXIT', ExitReason} ->
 					gen_tcp:close(Sock),
-					exit({Reason,
-						"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."});
-				ok -> ok
+					exit(ExitReason);
+				Greeting0 -> Greeting0
 			end,
-			Greeting = emysql_auth:do_handshake(Sock, User, Password),
 			Connection = #emysql_connection{
 				id = erlang:port_to_list(Sock),
 				pool_id = PoolId,
@@ -154,7 +152,13 @@ open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=
 					gen_tcp:close(Sock),
 					exit({failed_to_set_encoding, Err2#error_packet.msg})
 			end,
-			Connection;
+			case emysql_conn_mgr:give_manager_control(Sock) of
+				{error ,Reason} ->
+					gen_tcp:close(Sock),
+					exit({Reason,
+						"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."});
+				ok -> Connection
+			end;
 		{error, Reason} ->
 			exit({failed_to_connect_to_database, Reason})
 	end.
