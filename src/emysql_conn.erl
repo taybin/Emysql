@@ -123,14 +123,13 @@ open_connections(Pool) ->
 open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=Password, database=Database, encoding=Encoding}) ->
 	case gen_tcp:connect(Host, Port, [binary, {packet, raw}, {active, false}]) of
 		{ok, Sock} ->
-			Mgr = case whereis(emysql_conn_mgr) of
-				undefined ->
+			case emysql_conn_mgr:give_manager_control(Sock) of
+				{error ,Reason} ->
 					gen_tcp:close(Sock),
-					exit({failed_to_find_conn_mgr,
+					exit({Reason,
 						"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."});
-					Mgr0 -> Mgr0
+				ok -> ok
 			end,
-			gen_tcp:controlling_process(Sock, Mgr),
 			Greeting = emysql_auth:do_handshake(Sock, User, Password),
 			Connection = #emysql_connection{
 				id = erlang:port_to_list(Sock),

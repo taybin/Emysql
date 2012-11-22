@@ -32,7 +32,7 @@
 		add_connections/2, remove_connections/2,
 		lock_connection/1, wait_for_connection/1, wait_for_connection/2,
 		unlock_connection/1, replace_connection/2, replace_connection_locked/2,
-		find_pool/2]).
+		find_pool/2, give_manager_control/1]).
 
 -include("emysql.hrl").
 
@@ -96,6 +96,12 @@ replace_connection(OldConn, NewConn) ->
 
 replace_connection_locked(OldConn, NewConn) ->
 	do_gen_call({replace_connection_locked, OldConn, NewConn}).
+
+give_manager_control(Socket) ->
+	case whereis(?MODULE) of
+		undefined -> {error ,failed_to_find_conn_mgr};
+		MgrPid -> gen_tcp:controlling_process(Socket, MgrPid)
+	end.
 
 %% the stateful loop functions of the gen_server never
 %% want to call exit/1 because it would crash the gen_server.
