@@ -117,7 +117,7 @@ response(Sock, #packet{seq_num = SeqNum, data = Data}=_Packet) ->
 	ServerStatus }.
 
 recv_packet_header(Sock) ->
-	case gen_tcp:recv(Sock, 4, ?TIMEOUT) of
+	case gen_tcp:recv(Sock, 4, ?TCP_TIMEOUT) of
 		{ok, <<PacketLength:24/little-integer, SeqNum:8/integer>>} ->
 			{PacketLength, SeqNum};
 		{ok, Bin} when is_binary(Bin) ->
@@ -135,7 +135,7 @@ recv_packet_body(Sock, PacketLength) ->
 recv_packet_body(Sock, PacketLength, Tid, Key) ->
 	if
 		PacketLength > ?PACKETSIZE ->
-			case gen_tcp:recv(Sock, ?PACKETSIZE, ?TIMEOUT) of
+			case gen_tcp:recv(Sock, ?PACKETSIZE, ?TCP_TIMEOUT) of
 				{ok, Bin} ->
 					ets:insert(Tid, {Key, Bin}),
 					recv_packet_body(Sock, PacketLength - ?PACKETSIZE, Tid, Key+1);
@@ -143,7 +143,7 @@ recv_packet_body(Sock, PacketLength, Tid, Key) ->
 					exit({failed_to_recv_packet_body, Reason1})
 			end;
 		true ->
-			case gen_tcp:recv(Sock, PacketLength, ?TIMEOUT) of
+			case gen_tcp:recv(Sock, PacketLength, ?TCP_TIMEOUT) of
 				{ok, Bin} ->
 					if
 						Key == 0 -> Bin;

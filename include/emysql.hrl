@@ -37,6 +37,7 @@
 
 -define(TIMEOUT, 8000).
 -define(LOCK_TIMEOUT, 5000).
+-define(TCP_TIMEOUT, 3000).
 -define(MAXPACKETBYTES, 50000000).
 -define(LONG_PASSWORD, 1).
 -define(LONG_FLAG, 4).
