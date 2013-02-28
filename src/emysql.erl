@@ -90,10 +90,10 @@ execute(PoolId, Query, Args) when (is_list(Query) orelse is_binary(Query)) andal
 execute(PoolId, StmtName, Args) when is_atom(StmtName), is_list(Args) ->
 	execute(PoolId, StmtName, Args, default_timeout());
 
-execute(PoolId, Query, Timeout) when (is_list(Query) orelse is_binary(Query)) andalso is_integer(Timeout) ->
+execute(PoolId, Query, Timeout) when is_list(Query) orelse is_binary(Query), is_integer(Timeout) orelse infinity =:= Timeout ->
 	execute(PoolId, Query, [], Timeout);
 
-execute(PoolId, StmtName, Timeout) when is_atom(StmtName), is_integer(Timeout) ->
+execute(PoolId, StmtName, Timeout) when is_atom(StmtName), is_integer(Timeout) orelse infinity =:= Timeout ->
 	execute(PoolId, StmtName, [], Timeout).
 
 %% @spec execute(PoolId, Query|StmtName, Args, Timeout) -> Result
@@ -101,18 +101,18 @@ execute(PoolId, StmtName, Timeout) when is_atom(StmtName), is_integer(Timeout) -
 %%		Query = binary() | string()
 %%		StmtName = atom()
 %%		Args = [any()]
-%%		Timeout = integer()
+%%		Timeout = integer() | infinity
 %%		Result = ok_packet() | result_packet() | error_packet()
 %%
 %% @doc execute query
 %%
 %% Timeout is the query timeout in milliseconds
 %%
-execute(PoolId, Query, Args, Timeout) when (is_list(Query) orelse is_binary(Query)) andalso is_list(Args) andalso is_integer(Timeout) ->
+execute(PoolId, Query, Args, Timeout) when is_list(Query) orelse is_binary(Query), is_list(Args), is_integer(Timeout) orelse infinity =:= Timeout ->
 	Connection = emysql_conn_mgr:wait_for_connection(PoolId),
 	monitor_work(Connection, Timeout, [Connection, Query, Args]);
 
-execute(PoolId, StmtName, Args, Timeout) when is_atom(StmtName), is_list(Args) andalso is_integer(Timeout) ->
+execute(PoolId, StmtName, Args, Timeout) when is_atom(StmtName), is_list(Args), is_integer(Timeout) orelse infinity =:= Timeout ->
 	Connection = emysql_conn_mgr:wait_for_connection(PoolId),
 	monitor_work(Connection, Timeout, [Connection, StmtName, Args]).
 
@@ -122,7 +122,7 @@ execute(PoolId, StmtName, Args, Timeout) when is_atom(StmtName), is_list(Args) a
 %% until a connection is available. If no connections are available
 %% then the result of these functions will be the atom unavailable.
 %%
-execute(PoolId, Query, Args, Timeout, nonblocking) when (is_list(Query) orelse is_binary(Query)) andalso is_list(Args) andalso is_integer(Timeout) ->
+execute(PoolId, Query, Args, Timeout, nonblocking) when is_list(Query) orelse is_binary(Query), is_list(Args), is_integer(Timeout) orelse infinity =:= Timeout ->
 	case emysql_conn_mgr:lock_connection(PoolId) of
 		Connection when is_record(Connection, emysql_connection) ->
 			monitor_work(Connection, Timeout, [Connection, Query, Args]);
@@ -130,7 +130,7 @@ execute(PoolId, Query, Args, Timeout, nonblocking) when (is_list(Query) orelse i
 			unavailable
 	end;
 
-execute(PoolId, StmtName, Args, Timeout, nonblocking) when is_atom(StmtName), is_list(Args) andalso is_integer(Timeout) ->
+execute(PoolId, StmtName, Args, Timeout, nonblocking) when is_atom(StmtName), is_list(Args), is_integer(Timeout) orelse infinity =:= Timeout ->
 	case emysql_conn_mgr:lock_connection(PoolId) of
 		Connection when is_record(Connection, emysql_connection) ->
 			monitor_work(Connection, Timeout, [Connection, StmtName, Args]);
