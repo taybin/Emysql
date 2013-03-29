@@ -74,16 +74,16 @@ lock_connection(PoolId)->
 wait_for_connection(PoolId)->
 	%% try to lock a connection. if no connections are available then
 	%% wait to be notified of the next available connection
-    %-% error_logger:info_msg("~p waits for connection to pool ~p~n", [self(), PoolId]),
+    error_logger:info_msg("~p waits for connection to pool ~p~n", [self(), PoolId]),
         case do_gen_call({lock_connection_or_wait, PoolId}) of
 		unavailable ->
-            %-% error_logger:info_msg("~p is queued~n", [self()]),
+            error_logger:info_msg("~p is queued~n", [self()]),
 			receive
 				{connection, Connection} -> 
-                    %-% error_logger:info_msg("~p gets a connection after waiting in queue~n", [self()]),
+                    error_logger:info_msg("~p gets a connection after waiting in queue~n", [self()]),
     				Connection
 			after lock_timeout() ->
-                %-% error_logger:info_msg("~p gets no connection and times out -> EXIT~n~n", [self()]),
+                error_logger:info_msg("~p gets no connection and times out -> EXIT~n~n", [self()]),
 				case do_gen_call({end_wait, PoolId}) of
 					ok ->
 						exit(connection_lock_timeout);
@@ -95,7 +95,7 @@ wait_for_connection(PoolId)->
 				end
 			end;
 		Connection ->
-            %-% error_logger:info_msg("~p gets connection~n", [self()]),
+            error_logger:info_msg("~p gets connection~n", [self()]),
 			Connection
 	end.
 
@@ -230,7 +230,7 @@ handle_call({end_wait, PoolId}, {From, _Mref}, State) ->
 
 handle_call({lock_connection, PoolId}, _From, State) ->
 	%% find the next available connection in the pool identified by PoolId
-    %-% error_logger:info_msg("gen srv: lock connection for pool ~p~n", [PoolId]),
+    error_logger:info_msg("gen srv: lock connection for pool ~p~n", [PoolId]),
 	case find_pool(PoolId, State#state.pools) of
 		{Pool, OtherPools} ->
 			case lock_next_connection(State, Pool, OtherPools) of
@@ -351,11 +351,11 @@ find_pool(PoolId, [Pool|Tail], OtherPools) ->
 
 lock_next_connection(State, Pool, OtherPools) ->
 	% check no of connection in Pool
-	%-% error_logger:info_msg("~p Pool ~p Connections available: ~p~n", [self(), Pool#pool.pool_id, queue:len(Pool#pool.available)]),
-	%-% error_logger:info_msg("~p Pool ~p Connections locked: ~p~n", [self(), Pool#pool.pool_id, gb_trees:size(Pool#pool.locked)]),
+	error_logger:info_msg("~p Pool ~p Connections available: ~p~n", [self(), Pool#pool.pool_id, queue:len(Pool#pool.available)]),
+	error_logger:info_msg("~p Pool ~p Connections locked: ~p~n", [self(), Pool#pool.pool_id, gb_trees:size(Pool#pool.locked)]),
 	case queue:out(Pool#pool.available) of
 		{{value, Conn}, OtherConns} ->
-			%-% error_logger:info_msg("gen srv: lock connection ... found a good next connection~n", []),
+			error_logger:info_msg("gen srv: lock connection ... found a good next connection~n", []),
 			NewConn = Conn#emysql_connection{locked_at=lists:nth(2, tuple_to_list(now()))},
 			Locked = gb_trees:enter(NewConn#emysql_connection.id, NewConn, Pool#pool.locked),
 			State1 = State#state{pools = [Pool#pool{available=OtherConns, locked=Locked}|OtherPools]},
@@ -421,11 +421,11 @@ lock_timeout() ->
 receive_connection_not_waiting() ->
 	receive
 		{connection, Connection} -> 
-			%%-% error_logger:info_msg("~p gets a connection after timeout in queue~n", [self()]),
+			error_logger:info_msg("~p gets a connection after timeout in queue~n", [self()]),
 			Connection
 	after 
 		%% This should never happen, as we should only be here if we had been sent a connection
 		lock_timeout() ->
-			%%-% error_logger:info_msg("~p gets no connection and times out again -> EXIT~n~n", [self()]),
+			error_logger:info_msg("~p gets no connection and times out again -> EXIT~n~n", [self()]),
 			exit(connection_lock_second_timeout)
 	end.

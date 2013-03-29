@@ -45,13 +45,13 @@ set_encoding(Connection, Encoding) ->
 	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 execute(Connection, Query, []) when is_list(Query) ->
-	 %-% error_logger:info_msg("~p execute list: ~p using connection: ~p~n", [self(), iolist_to_binary(Query), Connection#emysql_connection.id]),
+	error_logger:info_msg("~p execute list: ~p using connection: ~p~n", [self(), iolist_to_binary(Query), Connection#emysql_connection.id]),
 	Packet = <<?COM_QUERY, (emysql_util:to_binary(Query, Connection#emysql_connection.encoding))/binary>>,
 	% Packet = <<?COM_QUERY, (iolist_to_binary(Query))/binary>>,
 	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0);
 
 execute(Connection, Query, []) when is_binary(Query) ->
-	 %-% error_logger:info_msg("~p execute binary: ~p using connection: ~p~n", [self(), Query, Connection#emysql_connection.id]),
+	error_logger:info_msg("~p execute binary: ~p using connection: ~p~n", [self(), Query, Connection#emysql_connection.id]),
 	Packet = <<?COM_QUERY, Query/binary>>,
 	% Packet = <<?COM_QUERY, (iolist_to_binary(Query))/binary>>,
 	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0);
@@ -108,7 +108,7 @@ unprepare(Connection, Name) ->
 	emysql_tcp:send_and_recv_packet(Connection#emysql_connection.socket, Packet, 0).
 
 open_n_connections(PoolId, N) ->
-	 %-% error_logger:info_msg("open ~p connections for pool ~p~n", [N, PoolId]),
+	error_logger:info_msg("open ~p connections for pool ~p~n", [N, PoolId]),
 	case emysql_conn_mgr:find_pool(PoolId, emysql_conn_mgr:pools()) of
 		{Pool, _} ->
 			lists:foldl(fun(_ ,Connections) ->
@@ -125,32 +125,32 @@ open_n_connections(PoolId, N) ->
 	end.
 
 open_connections(Pool) ->
-	 %-% error_logger:info_msg("open connections loop: .. "),
+	error_logger:info_msg("open connections loop: .. "),
 	case (queue:len(Pool#pool.available) + gb_trees:size(Pool#pool.locked)) < Pool#pool.size of
 		true ->
-	        %-% error_logger:info_msg(" continues~n"),
+	        error_logger:info_msg(" continues~n"),
 			Conn = emysql_conn:open_connection(Pool),
-        	%-% error_logger:info_msg("opened connection: ~p~n", [Conn]),
+        	error_logger:info_msg("opened connection: ~p~n", [Conn]),
 			open_connections(Pool#pool{available = queue:in(Conn, Pool#pool.available)});
 		false ->
-	        %-% error_logger:info_msg(" done~n"),
+	        error_logger:info_msg(" done~n"),
 			Pool
 	end.
 
 open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=Password, database=Database, encoding=Encoding}) ->
-	 %-% error_logger:info_msg("~p open connection for pool ~p host ~p port ~p user ~p base ~p~n", [self(), PoolId, Host, Port, User, Database]),
-	 %-% error_logger:info_msg("~p open connection: ... connect ... ~n", [self()]),
+	error_logger:info_msg("~p open connection for pool ~p host ~p port ~p user ~p base ~p~n", [self(), PoolId, Host, Port, User, Database]),
+	error_logger:info_msg("~p open connection: ... connect ... ~n", [self()]),
 	case gen_tcp:connect(Host, Port, [binary, {packet, raw}, {active, false}]) of
 		{ok, Sock} ->
-			%-% error_logger:info_msg("~p open connection: ... got socket~n", [self()]),
+			error_logger:info_msg("~p open connection: ... got socket~n", [self()]),
 			Mgr = whereis(emysql_conn_mgr),
 			Mgr /= undefined orelse
 				exit({failed_to_find_conn_mgr,
 					"Failed to find conn mgr when opening connection. Make sure crypto is started and emysql.app is in the Erlang path."}),
 			gen_tcp:controlling_process(Sock, Mgr),
-			%-% error_logger:info_msg("~p open connection: ... greeting~n", [self()]),
+			error_logger:info_msg("~p open connection: ... greeting~n", [self()]),
 			Greeting = emysql_auth:do_handshake(Sock, User, Password),
-			%-% error_logger:info_msg("~p open connection: ... make new connection~n", [self()]),
+			error_logger:info_msg("~p open connection: ... make new connection~n", [self()]),
 			Connection = #emysql_connection{
 				id = erlang:port_to_list(Sock),
 				pool_id = PoolId,
@@ -161,30 +161,30 @@ open_connection(#pool{pool_id=PoolId, host=Host, port=Port, user=User, password=
 				caps = Greeting#greeting.caps,
 				language = Greeting#greeting.language
 			},
-			%-% error_logger:info_msg("~p open connection: ... set db ...~n", [self()]),
+			error_logger:info_msg("~p open connection: ... set db ...~n", [self()]),
 			case emysql_conn:set_database(Connection, Database) of
 				OK1 when is_record(OK1, ok_packet) ->
-					 %-% error_logger:info_msg("~p open connection: ... db set ok~n", [self()]),
+					error_logger:info_msg("~p open connection: ... db set ok~n", [self()]),
 					ok;
 				Err1 when is_record(Err1, error_packet) ->
-					 %-% error_logger:info_msg("~p open connection: ... db set error~n", [self()]),
+					error_logger:info_msg("~p open connection: ... db set error~n", [self()]),
 					exit({failed_to_set_database, Err1#error_packet.msg})
 			end,
-			%-% error_logger:info_msg("~p open connection: ... set encoding ...: ~p~n", [self(), Encoding]),
+			error_logger:info_msg("~p open connection: ... set encoding ...: ~p~n", [self(), Encoding]),
 			case emysql_conn:set_encoding(Connection, Encoding) of
 				OK2 when is_record(OK2, ok_packet) ->
 					ok;
 				Err2 when is_record(Err2, error_packet) ->
 					exit({failed_to_set_encoding, Err2#error_packet.msg})
 			end,
-			 %-% error_logger:info_msg("~p open connection: ... ok, return connection~n", [self()]),
+			error_logger:info_msg("~p open connection: ... ok, return connection~n", [self()]),
 			Connection;
 		{error, Reason} ->
-			 %-% error_logger:info_msg("~p open connection: ... ERROR ~p~n", [self(), Reason]),
-			 %-% error_logger:info_msg("~p open connection: ... exit with failed_to_connect_to_database~n", [self()]),
+			error_logger:info_msg("~p open connection: ... ERROR ~p~n", [self(), Reason]),
+			error_logger:info_msg("~p open connection: ... exit with failed_to_connect_to_database~n", [self()]),
 			exit({failed_to_connect_to_database, Reason});
 		What ->
-			 %-% error_logger:info_msg("~p open connection: ... UNKNOWN ERROR ~p~n", [self(), What]),
+			error_logger:info_msg("~p open connection: ... UNKNOWN ERROR ~p~n", [self(), What]),
 			exit({unknown_fail, What})
 	end.
 
@@ -196,26 +196,26 @@ reset_connection(Pools, Conn, StayLocked) ->
 	%% we queue the old as available for the next try
 	%% by the next caller process coming along. So the
 	%% pool can't run dry, even though it can freeze.
-	%-% error_logger:info_msg("resetting connection~n"),
-	%-% error_logger:info_msg("spawn process to close connection~n"),
+	error_logger:info_msg("resetting connection~n"),
+	error_logger:info_msg("spawn process to close connection~n"),
 	spawn(fun() -> close_connection(Conn) end),
 	%% OPEN NEW SOCKET
 	case emysql_conn_mgr:find_pool(Conn#emysql_connection.pool_id, Pools) of
 		{Pool, _} ->
-			%-% error_logger:info_msg("... open new connection to renew~n"),
+			error_logger:info_msg("... open new connection to renew~n"),
 			case catch open_connection(Pool) of
 				NewConn when is_record(NewConn, emysql_connection) ->
-					%-% error_logger:info_msg("... got it, replace old (~p)~n", [StayLocked]),
+					error_logger:info_msg("... got it, replace old (~p)~n", [StayLocked]),
 					case StayLocked of
 						pass -> emysql_conn_mgr:replace_connection_as_available(Conn, NewConn);
 						keep -> emysql_conn_mgr:replace_connection_as_locked(Conn, NewConn)
 					end,
-					%-% error_logger:info_msg("... done, return new connection~n"),
+					error_logger:info_msg("... done, return new connection~n"),
 					NewConn;
 				Error ->
 					DeadConn = Conn#emysql_connection{alive=false},
 					emysql_conn_mgr:replace_connection_as_available(Conn, DeadConn),
-					%-% error_logger:info_msg("... failed to re-open. Shelving dead connection as available.~n"),
+					error_logger:info_msg("... failed to re-open. Shelving dead connection as available.~n"),
 					{error, {cannot_reopen_in_reset, Error}}
 			end;
 		undefined ->
